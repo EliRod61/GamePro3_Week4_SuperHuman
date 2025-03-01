@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine.UIElements.Experimental;
 using UnityEngine.SceneManagement;
 using Unity.VisualScripting;
+using UnityEngine.UI;
 
 public class playerController : MonoBehaviour
 {
@@ -12,6 +13,7 @@ public class playerController : MonoBehaviour
     public float walkSpeed;
     public float sprintSpeed;
     public float climbSpeed;
+    public float teleportDistance;
 
     [Header("Ground Check")]
     public float playerHeight;
@@ -37,8 +39,15 @@ public class playerController : MonoBehaviour
     float verticalInput;
     Vector3 moveDirection;
 
+    public RawImage cursor;
+    Color defaultColor;
+    public Color teleportColor;
+
     void Start()
     {
+        defaultColor = cursor.color;
+        teleportColor.a = 1;
+
         spawnPoint = transform.position;
 
         moveSpeed = walkSpeed;
@@ -90,6 +99,9 @@ public class playerController : MonoBehaviour
         horizontalInput = Input.GetAxisRaw("Horizontal");
         verticalInput = Input.GetAxisRaw("Vertical");
 
+        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+
         //rb.AddForce(moveDirection.normalized * moveSpeed * 10f, ForceMode.Force);
 
         //Space to Jump
@@ -105,10 +117,10 @@ public class playerController : MonoBehaviour
         //LMB to teleport
         if (Input.GetKeyUp(KeyCode.Mouse0))
         {
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            RaycastHit hit;
+            //Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            //RaycastHit hit;
 
-            if (Physics.Raycast(ray, out hit))
+            if (Physics.Raycast(ray, out hit, teleportDistance))
             {
                 transform.position = hit.point;
             }
@@ -118,6 +130,15 @@ public class playerController : MonoBehaviour
         if (Input.GetKeyUp(KeyCode.Mouse1))
         {
             gameObject.transform.position = spawnPoint;
+        }
+
+        if (Physics.Raycast(ray, out hit, teleportDistance))
+        {
+            cursor.color = teleportColor;
+        }
+        else
+        {
+            cursor.color = defaultColor;
         }
     }
 
