@@ -178,17 +178,4 @@ public class playerController : MonoBehaviour
     {
         readyToJump = true;
     }
-
-    private void M3yInput()
-    {
-        if (readyToJump && grounded)
-        {
-            readyToJump = false;
-
-            Jump();
-
-            Invoke(nameof(ResetJump), jumpCooldown);
-        }
-    }
-
 }
