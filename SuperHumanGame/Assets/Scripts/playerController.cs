@@ -70,7 +70,7 @@ public class playerController : MonoBehaviour
 
         if (grounded)
         {
-            rb.linearDamping = groundDrag;
+            rb.linearDamping = 0;
         }
         else
         {
@@ -82,16 +82,24 @@ public class playerController : MonoBehaviour
     {
         PlayerMovement();
     }
+
+    //logarithmic drag formula WIP
+    private void ApplyDrag(float coeff)
+    {
+        Vector3 force = (coeff * rb.linearVelocity.normalized * rb.linearVelocity.sqrMagnitude);
+        rb.AddForce(-force);
+    }
+
     private void speedControl()
     {
         Vector3 flatVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
 
         //limit velocity
-        if (flatVel.magnitude > moveSpeed)
-        {
-            Vector3 limitedVel = flatVel.normalized * moveSpeed;
-            rb.linearVelocity = new Vector3(limitedVel.x, rb.linearVelocity.y, limitedVel.z);
-        }
+        //if (flatVel.magnitude > moveSpeed)
+        //{
+        //    Vector3 limitedVel = flatVel.normalized * moveSpeed;
+        //    rb.linearVelocity = new Vector3(limitedVel.x, rb.linearVelocity.y, limitedVel.z);
+        //}
     }
 
     void MyInput()
@@ -127,7 +135,7 @@ public class playerController : MonoBehaviour
         }
 
         //RMB to teleport to spawn
-        if (Input.GetKeyUp(KeyCode.Mouse1))
+        if (Input.GetKeyUp(KeyCode.Escape))
         {
             gameObject.transform.position = spawnPoint;
         }
