@@ -95,11 +95,11 @@ public class playerController : MonoBehaviour
         Vector3 flatVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
 
         //limit velocity
-        //if (flatVel.magnitude > moveSpeed)
-        //{
-        //    Vector3 limitedVel = flatVel.normalized * moveSpeed;
-        //    rb.linearVelocity = new Vector3(limitedVel.x, rb.linearVelocity.y, limitedVel.z);
-        //}
+        if (flatVel.magnitude > moveSpeed)
+        {
+            Vector3 limitedVel = flatVel.normalized * moveSpeed;
+            rb.linearVelocity = new Vector3(limitedVel.x, rb.linearVelocity.y, limitedVel.z);
+        }
     }
 
     void MyInput()

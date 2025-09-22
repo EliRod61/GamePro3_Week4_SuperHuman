@@ -7,7 +7,7 @@ public class Climbing : MonoBehaviour
     [Header("References")]
     public Transform orientation;
     public Rigidbody rb;
-    public playerController playerScript;
+    public PlayerMovement playerScript;
     public LayerMask Wall;
 
     [Header("Climbing")]
@@ -83,7 +83,9 @@ public class Climbing : MonoBehaviour
 
     void WallCheck()
     {
-        wallFront = Physics.SphereCast(transform.position, sphereCastRadius, orientation.forward, out frontWallHit, detectionLength, Wall);
+        Vector3 currPos = transform.position;
+        currPos += new Vector3(0f, -0.1f, 0f); // Moves the object 1 unit upwards
+        wallFront = Physics.SphereCast(currPos, sphereCastRadius, orientation.forward, out frontWallHit, detectionLength, Wall);
         wallLookAngle = Vector3.Angle(orientation.forward, -frontWallHit.normal);
 
         bool newWall = frontWallHit.transform != lastWall || Mathf.Abs(Vector3.Angle(lastWallNormal, frontWallHit.normal)) > minWallNormalAngleChange;
