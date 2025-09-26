@@ -12,8 +12,12 @@ using Unity.VisualScripting;
 
 public class PlayerMovement : MonoBehaviour
 {
+    [Header("Stats")]
+    public int MaxHealth;
+    public int currentHealth;
+    [SerializeField] float currentMoveSpeed;
+
     [Header("Movement")]
-    float currentMoveSpeed;
     float desiredMoveSpeed;
     float lastDesiredMoveSpeed;
     public float walkSpeed;
@@ -89,6 +93,7 @@ public class PlayerMovement : MonoBehaviour
         sprinting,
         teleporting,
         climbing,
+        confused,
         air
     }
     public bool walking, inAir, wallrunning, climbing, playerIsMoving;
@@ -97,6 +102,7 @@ public class PlayerMovement : MonoBehaviour
         defaultColor = cursor.color;
         teleportColor.a = 1;
 
+        currentHealth = MaxHealth;
         spawnPoint = transform.position;
         rb = GetComponent<Rigidbody>();
         rb.freezeRotation = true;
@@ -105,16 +111,20 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
-        GroundDetection();
+        grounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.2f, whatIsGround);
 
-        walking = (Mathf.Abs(Input.GetAxisRaw("Horizontal")) + Mathf.Abs(Input.GetAxisRaw("Vertical")) > 0.2f);
-        playerIsMoving = (Mathf.Abs(Input.GetAxisRaw("Horizontal")) + Mathf.Abs(Input.GetAxisRaw("Vertical")) > 0.1f);
+        Debug.Log(currentHealth);
+
+        //walking = (Mathf.Abs(Input.GetAxisRaw("Horizontal")) + Mathf.Abs(Input.GetAxisRaw("Vertical")) > 0.2f);
+        //playerIsMoving = (Mathf.Abs(Input.GetAxisRaw("Horizontal")) + Mathf.Abs(Input.GetAxisRaw("Vertical")) > 0.1f);
 
         TimerManager();
         MyInput();
         TeleportSkill();
         SpeedControl();
         StateHandler();
+
+        currentHealth = Mathf.Clamp(currentHealth, 0, MaxHealth);
 
         // handle drag
         if (grounded)
@@ -147,35 +157,6 @@ public class PlayerMovement : MonoBehaviour
         QuadraticDrag(drag);
     }
 
-    void MyInput()
-    {
-        horizontalInput = Input.GetAxisRaw("Horizontal");
-        verticalInput = Input.GetAxisRaw("Vertical");
-
-        // when to jump
-        if (Input.GetKey(jumpKey) && readyToJump && grounded)
-        {
-            readyToJump = false;
-
-            Jump();
-
-            Invoke(nameof(ResetJump), jumpCooldown);
-        }
-
-        // Mode - Sprinting
-        if (grounded && Input.GetKey(KeyCode.LeftShift))
-        {
-            state = MovementState.sprinting;
-
-        }
-
-        //Pause
-        if (Input.GetKeyDown(pauseKey))
-        {
-            pauseMenu.SetActive(true);
-        }
-
-    }
     void StateHandler()
     {
         switch (state)
@@ -187,6 +168,11 @@ public class PlayerMovement : MonoBehaviour
             case MovementState.sprinting:
                 desiredMoveSpeed = sprintSpeed;
                 drag = 1f;
+
+                if (!Input.GetKey(KeyCode.LeftShift))
+                {
+                    state = MovementState.walking;
+                }
                 break;
             case MovementState.teleporting:
                 desiredMoveSpeed = 0f;
@@ -209,45 +195,47 @@ public class PlayerMovement : MonoBehaviour
         }
         else
         {
-            currentMoveSpeed = desiredMoveSpeed;
+            SpeedManager();
         }
 
         lastDesiredMoveSpeed = desiredMoveSpeed;
     }
 
-    IEnumerator SmoothlyLerpMoveSpeed()
+    void MyInput()
     {
-        //smooothly lerp movementSpeed to desired value
-        float time = 0;
-        float difference = Mathf.Abs(desiredMoveSpeed - currentMoveSpeed);
-        float startValue = currentMoveSpeed;
-
-        while (time < difference)
+        if (state != MovementState.confused)
         {
-            currentMoveSpeed = Mathf.Lerp(startValue, desiredMoveSpeed, time / difference);
-
-            if (OnSlope())
-            {
-                float slopeAngle = Vector3.Angle(Vector3.up, slopeHit.normal);
-                float slopeAngleIncrease = 1 + (slopeAngle / 90f);
-
-                time += Time.deltaTime * speedIncreaseMultiplier * slopeAngleIncrease;//slopeIncreaseMultiplier 
-            }
-            else
-                time += Time.deltaTime * speedIncreaseMultiplier;
-
-            yield return null;
+            horizontalInput = Input.GetAxisRaw("Horizontal");
+            verticalInput = Input.GetAxisRaw("Vertical");
+        }
+        else
+        {
+            horizontalInput = -Input.GetAxisRaw("Horizontal");
+            verticalInput = -Input.GetAxisRaw("Vertical");
         }
 
-        currentMoveSpeed = desiredMoveSpeed;
-    }
+        // when to jump
+        if (Input.GetKey(jumpKey) && readyToJump && grounded)
+        {
+            readyToJump = false;
 
-    IEnumerator DeathScene()
-    {
-        deathAnim.Play("ScreenFade_In");
-        yield return new WaitForSeconds(1.45f);
-        RespawnPlayer();
-        deathAnim.Play("ScreenFade_Out");
+            Jump();
+
+            Invoke(nameof(ResetJump), jumpCooldown);
+        }
+
+        // Mode - Sprinting
+        if (grounded && Input.GetKey(KeyCode.LeftShift))
+        {
+            state = MovementState.sprinting;
+        }
+
+        //Pause
+        if (Input.GetKeyDown(pauseKey))
+        {
+            pauseMenu.SetActive(true);
+        }
+
     }
 
     void MovePlayer()
@@ -279,6 +267,43 @@ public class PlayerMovement : MonoBehaviour
         if (!wallrunning) rb.useGravity = !OnSlope();
     }
 
+    //SPEED CALCULATIONS//
+
+    //SETS SPEED VALUES FROM STATES INTO THE PLAYER'S MOVESPEED AND KEEPS IT OPEN TO SPEED MODIFIERS
+    public void SpeedManager(float speedMultiplier = 1f)
+    {
+        currentMoveSpeed = desiredMoveSpeed * speedMultiplier;
+    }
+
+    //RETURNS SPEED TO NORMAL VALUES
+    IEnumerator SmoothlyLerpMoveSpeed()
+    {
+        //smooothly lerp movementSpeed to desired value
+        float time = 0;
+        float difference = Mathf.Abs(desiredMoveSpeed - currentMoveSpeed);
+        float startValue = currentMoveSpeed;
+
+        while (time < difference)
+        {
+            currentMoveSpeed = Mathf.Lerp(startValue, desiredMoveSpeed, time / difference);
+
+            if (OnSlope())
+            {
+                float slopeAngle = Vector3.Angle(Vector3.up, slopeHit.normal);
+                float slopeAngleIncrease = 1 + (slopeAngle / 90f);
+
+                time += Time.deltaTime * speedIncreaseMultiplier * slopeAngleIncrease;//slopeIncreaseMultiplier 
+            }
+            else
+                time += Time.deltaTime * speedIncreaseMultiplier;
+
+            yield return null;
+        }
+
+        currentMoveSpeed = desiredMoveSpeed;
+    }
+
+    //CONTROLS LOGIC ON SLOPES AND PREVENTS SLIDING AFTER WALKING/RUNNING(DRAG)
     void SpeedControl()
     {
         //limiting speed on slope
@@ -301,8 +326,24 @@ public class PlayerMovement : MonoBehaviour
             }
         }
     }
-    
-    // Method to calculate drag force
+
+    //DETERMINES WHAT IS A SLOPE / THE ANGLE THAT DETERMINES A SLOPE
+    public bool OnSlope()
+    {
+        if (Physics.Raycast(transform.position, Vector3.down, out slopeHit, playerHeight * 0.5f + 0.3f))
+        {
+            float angle = Vector3.Angle(Vector3.up, slopeHit.normal);
+            return angle < maxSlopeAngle && angle != 0;
+        }
+
+        return false;
+    }
+    public Vector3 GetSlopeMoveDirection(Vector3 direction)
+    {
+        return Vector3.ProjectOnPlane(direction, slopeHit.normal).normalized;
+    }
+
+    // METHOD TO CALCULATE DRAG FORCE
     public static double CalculateDragForce(double dragCoefficient, double airDensity, double crossSectionalArea, double velocity)
     {
         // Applying the drag equation: Fd = 0.5 * Cd * rho * A * v^2
@@ -340,49 +381,52 @@ public class PlayerMovement : MonoBehaviour
         exitingSlope = false;
     }
 
-    public bool OnSlope()
-    {
-        if (Physics.Raycast(transform.position, Vector3.down, out slopeHit, playerHeight * 0.5f + 0.3f))
-        {
-            float angle = Vector3.Angle(Vector3.up, slopeHit.normal);
-            return angle < maxSlopeAngle && angle != 0;
-        }
+    //STATS AND HANDLING METHODS//
 
-        return false;
-    }
-    public Vector3 GetSlopeMoveDirection(Vector3 direction)
+    public void PlayerHealth(int healthModifier)
     {
-        return Vector3.ProjectOnPlane(direction, slopeHit.normal).normalized;
+        currentHealth += healthModifier;
+
+        if (currentHealth <= 0)
+            DeathScene();
     }
 
+
+    //UPDATES CHECKPOINT POSITION
     public void UpdateCheckpoint(Vector3 pos)
     {
         spawnPoint = pos;
     }
+
+    //SEQUENCE FOR RESPAWNING PLAYER
     public void RespawnPlayer()
     {
         gameObject.transform.position = spawnPoint;
         rb.linearVelocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
     }
-    void GroundDetection()
+    IEnumerator DeathScene()
     {
-        // ground check
-        grounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.2f, whatIsGround);
+        deathAnim.Play("ScreenFade_In");
+        yield return new WaitForSeconds(1.45f);
+        RespawnPlayer();
+        deathAnim.Play("ScreenFade_Out");
     }
+
     void OnTriggerEnter(Collider other)
     {
-        //Death
+        //Die when colliding with hazard
         if (other.gameObject.CompareTag("Hazard"))
         {
             RespawnPlayer();
         }
-
+        //Get Checkpoint Instance 
         if (other.gameObject.GetComponent<Checkpoints>())
         {
             GameObject checkpoint = other.gameObject.GetComponent<GameObject>();
         }
 
+        //Get Bounce Pad Instance
         BouncePad bouncePad = other.gameObject.GetComponent<BouncePad>();
         if (bouncePad != null)
         {
@@ -397,13 +441,13 @@ public class PlayerMovement : MonoBehaviour
             Standing_On = null;
         }
 
+        //Kill y velocity when exiting slope // prevents flying off slope
         if (other.gameObject.CompareTag("Slope"))
         {
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
         }
-
     }
-
+    //Take variable of bounce strength from the bounce pad being stepped on
     public float SetBounceStrength()
     {
         if (Standing_On) return Standing_On.Bounce_Strength;
@@ -421,7 +465,7 @@ public class PlayerMovement : MonoBehaviour
             cursor.color = teleportColor;
 
             //LMB to teleport
-            if (Input.GetKeyUp(KeyCode.Mouse0) && canTeleport == true)
+            if (Input.GetKeyDown(KeyCode.Mouse0) && canTeleport == true)
             {
                 canTeleport = false;
                 TeleportTimer = TeleportCooldown;
@@ -439,7 +483,7 @@ public class PlayerMovement : MonoBehaviour
         }
 
         //RMB to teleport to position before teleport
-        if (Input.GetKeyUp(KeyCode.Mouse1) && canReturnTeleport == true)
+        if (Input.GetKeyDown(KeyCode.Mouse1) && canReturnTeleport == true)
         {
             canReturnTeleport = false;
             ReturnTimer = ReturnCooldown;
@@ -469,6 +513,7 @@ public class PlayerMovement : MonoBehaviour
             }
         }
     }
+
 
 
 }
