@@ -16,6 +16,9 @@ public class PlayerMovement : MonoBehaviour
     public int MaxHealth;
     public int currentHealth;
     [SerializeField] float currentMoveSpeed;
+    public Transform cam;
+    public Transform attackPoint;
+    public GameObject objectToThrow;
 
     [Header("Movement")]
     float desiredMoveSpeed;
@@ -73,6 +76,8 @@ public class PlayerMovement : MonoBehaviour
     Vector3 positionBeforeTeleport;
     public float teleportDistance;
     public bool canTeleport = true, canReturnTeleport = true;
+    public bool teleportTarget = false;
+    GameObject projectile;
 
     [Header("References")]
     public Climbing climbingScript;
@@ -112,6 +117,7 @@ public class PlayerMovement : MonoBehaviour
     void Update()
     {
         grounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.2f, whatIsGround);
+        
 
         Debug.Log(currentHealth);
 
@@ -463,7 +469,26 @@ public class PlayerMovement : MonoBehaviour
         if (Physics.Raycast(ray, out hit, teleportDistance, whatIsGround))
         {
             cursor.color = teleportColor;
+            
+            if (Input.GetKeyUp(KeyCode.Q))
+            {
+                 if (teleportTarget == false)
+                 {
+                      projectile = Instantiate(objectToThrow, hit.point, Quaternion.identity);
+                      teleportTarget = true;
+                 }
+                 else
+                 {
+                      teleportTarget = false;
+                      Destroy(projectile);
+                 }
+            }
 
+            if (projectile != null)
+            {
+                projectile.transform.position = Vector3.MoveTowards(projectile.transform.position, hit.point, 2f);
+            }
+                
             //LMB to teleport
             if (Input.GetKeyDown(KeyCode.Mouse0) && canTeleport == true)
             {
@@ -513,7 +538,4 @@ public class PlayerMovement : MonoBehaviour
             }
         }
     }
-
-
-
 }
